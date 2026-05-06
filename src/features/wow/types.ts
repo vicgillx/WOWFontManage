@@ -16,3 +16,13 @@ export interface WowInstallation {
   fontsPath: string;
   exists: boolean;
 }
+
+export interface FontAssignment {
+  sourceFontPath: string | null;
+  targetFileNames: string[];
+}
+
+export interface ApplyFontConfigRequest {
+  productPath: string;
+  assignments: FontAssignment[];
+}

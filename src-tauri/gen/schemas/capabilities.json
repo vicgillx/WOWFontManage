@@ -1,1 +1,1 @@
-{}
+{"default":{"identifier":"default","description":"主窗口：系统 API、文件选择与 WoW 字体命令","local":true,"windows":["main"],"permissions":["core:default","dialog:default","wow-commands"]}}

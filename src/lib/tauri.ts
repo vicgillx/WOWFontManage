@@ -5,13 +5,13 @@ export async function invokeCommand<T>(
   args?: Record<string, unknown>,
 ): Promise<T> {
   if (!("__TAURI_INTERNALS__" in window)) {
-    return mockCommand<T>(command);
+    return mockCommand<T>(command, args);
   }
 
   return tauriInvoke<T>(command, args);
 }
 
-function mockCommand<T>(command: string): Promise<T> {
+function mockCommand<T>(command: string, _args?: Record<string, unknown>): Promise<T> {
   if (command === "get_font_profiles") {
     return Promise.resolve([
       {

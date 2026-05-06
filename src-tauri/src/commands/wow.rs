@@ -33,20 +33,52 @@ pub struct ApplyFontPackRequest {
     target_file_names: Vec<String>,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FontAssignment {
+    source_font_path: Option<String>,
+    target_file_names: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApplyFontConfigRequest {
+    product_path: String,
+    assignments: Vec<FontAssignment>,
+}
+
 #[tauri::command]
 pub fn get_font_profiles() -> Vec<FontProfile> {
     font_profiles()
 }
 
 #[tauri::command]
-pub fn scan_wow_installations() -> Vec<WowInstallation> {
+pub fn scan_wow_installations(root_path: Option<String>) -> Result<Vec<WowInstallation>, String> {
+    let roots: Vec<PathBuf> = match root_path {
+        Some(path) => {
+            let root = PathBuf::from(path.trim());
+            if !root.exists() {
+                return Err("所选路径不存在".into());
+            }
+            if !root.is_dir() {
+                return Err("请选择文件夹，而不是单个文件".into());
+            }
+            vec![root]
+        }
+        None => platform::candidate_wow_roots()
+            .into_iter()
+            .filter(|root| root.exists())
+            .collect(),
+    };
+
+    Ok(collect_installations(roots))
+}
+
+fn collect_installations(roots: Vec<PathBuf>) -> Vec<WowInstallation> {
     let profiles = font_profiles();
     let mut installations = Vec::new();
 
-    for root in platform::candidate_wow_roots()
-        .into_iter()
-        .filter(|root| root.exists())
-    {
+    for root in roots {
         for profile in &profiles {
             for marker in &profile.directory_markers {
                 let product_path = root.join(marker);
@@ -101,6 +133,45 @@ pub fn apply_font_pack(request: ApplyFontPackRequest) -> Result<String, String> 
     for file_name in &request.target_file_names {
         validate_template_file_name(file_name)?;
         fs::copy(&source_font_path, fonts_path.join(file_name)).map_err(error_to_string)?;
+    }
+
+    Ok(path_to_string(&fonts_path))
+}
+
+#[tauri::command]
+pub fn apply_font_config(request: ApplyFontConfigRequest) -> Result<String, String> {
+    let product_path = PathBuf::from(&request.product_path);
+    let fonts_path = product_path.join("Fonts");
+    let had_fonts_dir = fonts_path.exists();
+
+    if had_fonts_dir {
+        let _ = backup_fonts(request.product_path.clone())?;
+    }
+
+    fs::create_dir_all(&fonts_path).map_err(error_to_string)?;
+
+    for assignment in &request.assignments {
+        for file_name in &assignment.target_file_names {
+            validate_template_file_name(file_name)?;
+        }
+
+        match &assignment.source_font_path {
+            Some(source_font_path) => {
+                let source_font_path = PathBuf::from(source_font_path);
+                validate_font_source(&source_font_path)?;
+                for file_name in &assignment.target_file_names {
+                    fs::copy(&source_font_path, fonts_path.join(file_name)).map_err(error_to_string)?;
+                }
+            }
+            None => {
+                for file_name in &assignment.target_file_names {
+                    let target = fonts_path.join(file_name);
+                    if target.exists() {
+                        fs::remove_file(target).map_err(error_to_string)?;
+                    }
+                }
+            }
+        }
     }
 
     Ok(path_to_string(&fonts_path))

@@ -1,0 +1,10 @@
+[[permission]]
+identifier = "wow-commands"
+description = "Allow WoW font scanner and font pack backend commands."
+commands.allow = [
+  "get_font_profiles",
+  "scan_wow_installations",
+  "backup_fonts",
+  "apply_font_pack",
+  "apply_font_config",
+]
